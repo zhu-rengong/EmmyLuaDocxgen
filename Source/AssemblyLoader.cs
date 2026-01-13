@@ -1,4 +1,8 @@
+using System.CodeDom.Compiler;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace EmmyLuaDocxgen;
 
@@ -17,6 +21,7 @@ internal sealed class AssemblyLoader
     public AssemblyLoadResult LoadAssembly(AssemblyConfig config)
     {
         var assemblyPath = Path.GetFullPath(config.Path);
+        Console.WriteLine();
         _logger.LogInfo($"Loading assembly: {assemblyPath}");
 
         if (!File.Exists(assemblyPath))
@@ -44,8 +49,21 @@ internal sealed class AssemblyLoader
 
         try
         {
+            if (assembly.IsDefined(typeof(AssemblyMetadataAttribute)))
+            {
+                _logger.LogWarning($"This is a Assembly Metadata: {assembly}");
+
+                if (assembly.GetName().Name == "System.Runtime")
+                {
+                    assembly = typeof(object).Assembly;
+                    _logger.LogWarning($"Forward to: {assembly.Location}");
+                }
+
+            }
+
             var types = CollectTypes(assembly, config.Types);
             _logger.LogInfo($"Found {types.Count} types to generate");
+
             var assemblyName = assembly.GetName();
             return new AssemblyLoadResult.Success(assembly, types, assemblyName.Name ?? assemblyName.FullName);
         }
@@ -58,14 +76,47 @@ internal sealed class AssemblyLoader
 
     private List<Type> CollectTypes(Assembly assembly, List<string> typeFilters)
     {
-        return typeFilters
-            .Select(filter => {
-                if (assembly.GetType(filter) is Type type) { return type; }
-                _logger.LogWarning($"Not found {filter}");
-                return null;
-            })
-            .OfType<Type>()
-            .ToList();
+
+        var duplicates = typeFilters.GroupBy(tf => tf)
+                       .Where(g => g.Count() > 1)
+                       .Select(g => g.Key);
+
+        if (duplicates.Any())
+        {
+            _logger.LogWarning($"Detected duplicate type filters:");
+            foreach (string filter in duplicates)
+            {
+                _logger.LogWarning($"\"{filter}\"".Tab(4));
+            }
+
+            typeFilters = new HashSet<string>(typeFilters).ToList();
+            _logger.LogWarning($"Removed duplicates!");
+        }
+
+        var types = assembly.GetTypes()
+            .Where(t => !t.IsGenericType && !t.IsSpecialName
+                && !TypeHelper.IsCompilerGenerated(t)
+                && !t.IsDefined(typeof(GeneratedCodeAttribute), inherit: false));
+
+        if (!typeFilters.Contains("*"))
+        {
+            types = types.Where(t =>
+            {
+                string? ns = t.Namespace;
+                foreach (string filter in typeFilters)
+                {
+                    if ((filter.Last() is '*' && !string.IsNullOrEmpty(ns))
+                        ? ns.StartsWith(filter[..^1])
+                        : t == assembly.GetType(filter))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
+
+        return types.ToList();
     }
 
     private void LogLoaderExceptions(Exception ex)

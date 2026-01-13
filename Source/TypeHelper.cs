@@ -11,6 +11,12 @@ internal static class TypeHelper
 {
     public static bool IsCompilerGenerated(MemberInfo member) =>
         member.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false);
+    
+    public static bool IsCompilerGenerated(Type? type)
+    {
+        if (type == null) { return false; }
+        return type.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false) || IsCompilerGenerated(type.DeclaringType);
+    }
 
     public static bool IsGenericMethod(MethodInfo method) =>
         method.IsGenericMethodDefinition || method.ContainsGenericParameters;

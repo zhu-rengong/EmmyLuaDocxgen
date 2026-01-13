@@ -30,6 +30,8 @@ public static class Program
 
             var fullPath = Path.GetFullPath(config.OutputDir);
             var generatedFiles = generator.GetGeneratedFiles();
+
+            Console.WriteLine();
             logger.LogInfo($"Documentation generated successfully in: {fullPath}");
             logger.LogInfo($"Total files generated: {generatedFiles.Count}");
 
