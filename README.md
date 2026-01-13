@@ -1,6 +1,6 @@
 # EmmyLua Documentation Generator
 
-通过读取 C# 程序集，将其中的类型转换为遵循 [Lua Language Server](https://github.com/LuaLS/lua-language-server) 标准的 EmmyLua 文档。
+通过读取 C# 程序集，将其中的类型转换为遵循 [xLua](https://github.com/Tencent/xLua) 和 [Lua Language Server](https://github.com/LuaLS/lua-language-server) 标准的 [EmmyLua](https://emmylua.github.io/index.html) 文档。
 
 ## 功能特性
 
