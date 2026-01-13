@@ -128,7 +128,8 @@ internal sealed class TypeGenerator
     {
         var types = findAllMembers ? TypeHelper.GetInheritanceHierarchy(clrType) : [clrType];
 
-        foreach (PropertyInfo property in types.SelectMany(t => t.GetProperties(AllBindingFlags)))
+        foreach (PropertyInfo property in types.SelectMany(t => t.GetProperties(AllBindingFlags))
+                                            .Where(p => p.GetIndexParameters().Length == 0))
         {
             if (TypeHelper.IsCompilerGenerated(property)) continue;
 
