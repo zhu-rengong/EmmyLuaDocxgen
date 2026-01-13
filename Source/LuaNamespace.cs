@@ -37,9 +37,10 @@ public sealed class LuaNamespaceTree
         foreach (var type in types)
         {
             var tree = root;
-            string[] ns = (type.Namespace ?? "").Split('.');
+            if (string.IsNullOrEmpty(type.Namespace)) { continue; }
+            string[] nsSequence = type.Namespace.Split('.');
 
-            foreach (string part in ns)
+            foreach (string part in nsSequence)
             {
                 tree = tree.GetOrCreateChild(part);
             }

@@ -83,35 +83,32 @@ internal sealed class TypeMapper
             : GetQualifiedTypeNameInternal(type);
     }
 
-    private static string GetQualifiedTypeNameInternal(Type type, bool containNamespace = true, bool iterDeclaringTypes = true)
+    private static string GetQualifiedTypeNameInternal(Type type)
     {
         var typeInfo = type.GetTypeInfo();
-        StringBuilder qualifiedName = new();
+        List<string> names = new(8);
 
-        if (containNamespace && typeInfo.Namespace is string ns)
+        if (typeInfo.Namespace is string ns)
         {
-            qualifiedName.Append(ns);
+            names.AddRange(ns.Split('.'));
         }
 
-        if (iterDeclaringTypes)
+        Type? decl = typeInfo.DeclaringType;
+        Stack<Type> types = [];
+        while (decl != null)
         {
-            Type? decl = typeInfo.DeclaringType;
-            Stack<Type> types = [];
-            while (decl != null)
-            {
-                types.Push(decl);
-                decl = decl.DeclaringType;
-            }
-            while (types.Count > 0)
-            {
-                decl = types.Pop();
-                qualifiedName.Append(GetQualifiedTypeNameInternal(decl, containNamespace: false, iterDeclaringTypes: false));
-            }
+            types.Push(decl);
+            decl = decl.DeclaringType;
+        }
+        while (types.Count > 0)
+        {
+            decl = types.Pop();
+            names.Add(decl.Name);
         }
 
-        qualifiedName.Append($".{typeInfo.Name}");
+        names.Add(typeInfo.Name);
 
-        return qualifiedName.ToString();
+        return string.Join('.', names);
     }
 
     private string MapTypeInternal(Type type)
