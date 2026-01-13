@@ -12,6 +12,9 @@ internal static class TypeHelper
     public static bool IsCompilerGenerated(MemberInfo member) =>
         member.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false);
 
+    public static bool IsBaseDefMethod(MethodInfo member) =>
+        member.GetBaseDefinition().ReflectedType == member.ReflectedType;
+
     public static bool IsCompilerGenerated(Type? type)
     {
         if (type == null) { return false; }
