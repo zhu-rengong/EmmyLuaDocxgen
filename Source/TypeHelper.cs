@@ -11,7 +11,7 @@ internal static class TypeHelper
 {
     public static bool IsCompilerGenerated(MemberInfo member) =>
         member.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false);
-    
+
     public static bool IsCompilerGenerated(Type? type)
     {
         if (type == null) { return false; }
@@ -72,6 +72,14 @@ internal static class TypeHelper
         }
 
         return type.IsSubclassOf(typeof(Delegate));
+    }
+
+    public static IEnumerable<Type> GetInheritanceHierarchy(Type type)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            yield return current;
+        }
     }
 
     public static string GetSimpleMemberName(MemberInfo member)

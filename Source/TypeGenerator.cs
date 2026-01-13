@@ -60,7 +60,7 @@ internal sealed class TypeGenerator
 
     private LuaClass GenerateClass(Type clrType)
     {
-        var baseTypes = CollectBaseTypes(clrType);
+        var baseTypes = CollectBaseTypes(clrType, out bool isPrimaryBaseUserdata);
 
         var luaClass = new LuaClass
         {
@@ -68,29 +68,32 @@ internal sealed class TypeGenerator
             BaseType = baseTypes.Count > 0 ? string.Join(", ", baseTypes) : null
         };
 
-        GenerateFields(clrType, luaClass);
+        GenerateFields(clrType, luaClass, findAllMembers: isPrimaryBaseUserdata);
 
         GenerateOperators(clrType, luaClass);
 
-        GenerateMethods(clrType, luaClass);
+        GenerateMethods(clrType, luaClass, findAllMembers: isPrimaryBaseUserdata);
 
-        GenerateGenericMethods(clrType, luaClass);
+        GenerateGenericMethods(clrType, luaClass, findAllMembers: isPrimaryBaseUserdata);
 
         GenerateConstructors(clrType, luaClass);
 
         return luaClass;
     }
 
-    private List<string> CollectBaseTypes(Type clrType)
+    private List<string> CollectBaseTypes(Type clrType, out bool isPrimaryBaseUserdata)
     {
         Type[] interfaces = clrType.GetInterfaces();
         var baseTypes = new List<string>(3 + interfaces.Length);
 
         var baseType = clrType.BaseType;
+        isPrimaryBaseUserdata = false;
 
         if (baseType != null && baseType != typeof(object))
         {
-            baseTypes.Add(_docxgen.TypeMapper.GetQualifiedTypeName(baseType));
+            string name = _docxgen.TypeMapper.GetQualifiedTypeName(baseType);
+            isPrimaryBaseUserdata = name == "userdata";
+            baseTypes.Add(name);
         }
         else if (!clrType.IsInterface && clrType != typeof(object))
         {
@@ -121,9 +124,11 @@ internal sealed class TypeGenerator
         return baseTypes;
     }
 
-    private void GenerateFields(Type clrType, LuaClass luaClass)
+    private void GenerateFields(Type clrType, LuaClass luaClass, bool findAllMembers = false)
     {
-        foreach (PropertyInfo property in clrType.GetProperties(AllBindingFlags))
+        var types = findAllMembers ? TypeHelper.GetInheritanceHierarchy(clrType) : [clrType];
+
+        foreach (PropertyInfo property in types.SelectMany(t => t.GetProperties(AllBindingFlags)))
         {
             if (TypeHelper.IsCompilerGenerated(property)) continue;
 
@@ -131,7 +136,7 @@ internal sealed class TypeGenerator
             luaClass.Fields.Add(field);
         }
 
-        foreach (FieldInfo field in clrType.GetFields(AllBindingFlags))
+        foreach (FieldInfo field in types.SelectMany(t => t.GetFields(AllBindingFlags)))
         {
             if (TypeHelper.IsCompilerGenerated(field)) continue;
 
@@ -209,10 +214,12 @@ internal sealed class TypeGenerator
         }
     }
 
-    private void GenerateMethods(Type clrType, LuaClass luaClass)
+    private void GenerateMethods(Type clrType, LuaClass luaClass, bool findAllMembers = false)
     {
         var className = _docxgen.TypeMapper.GetQualifiedTypeName(clrType);
-        var methodGroups = clrType.GetMethods(AllBindingFlags)
+
+        var methodGroups = (findAllMembers ? TypeHelper.GetInheritanceHierarchy(clrType) : [clrType])
+            .SelectMany(t => t.GetMethods(AllBindingFlags))
             .Where(method => !TypeHelper.IsGenericMethod(method) && !TypeHelper.IsCompilerGenerated(method))
             .GroupBy(method => new
             {
@@ -261,10 +268,12 @@ internal sealed class TypeGenerator
         }
     }
 
-    private void GenerateGenericMethods(Type clrType, LuaClass luaClass)
+    private void GenerateGenericMethods(Type clrType, LuaClass luaClass, bool findAllMembers = false)
     {
         var className = _docxgen.TypeMapper.GetQualifiedTypeName(clrType);
-        var genericMethods = clrType.GetMethods(AllBindingFlags)
+        
+        var genericMethods = (findAllMembers ? TypeHelper.GetInheritanceHierarchy(clrType) : [clrType])
+            .SelectMany(t => t.GetMethods(AllBindingFlags))
             .Where(method => TypeHelper.IsSupportedGenericMethod(method) && !TypeHelper.IsCompilerGenerated(method));
 
         foreach (var method in genericMethods)
