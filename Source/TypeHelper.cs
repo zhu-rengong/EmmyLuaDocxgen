@@ -46,10 +46,9 @@ internal static class TypeHelper
             }
 
             if (!genericArg.GenericParameterAttributes.HasFlag(GenericParameterAttributes.ReferenceTypeConstraint)
-                && (
-                    genericArg.GetGenericParameterConstraints() is { Length: 0 } constraints)
-                    || genericArg.GetGenericParameterConstraints().Any(t => !t.IsClass)
-                )
+                && (genericArg.GetGenericParameterConstraints() is not Type[] constraints
+                    || constraints.Length == 0
+                    || constraints.Any(t => !t.IsClass)))
             {
                 return false;
             }
