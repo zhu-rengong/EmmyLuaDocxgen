@@ -157,7 +157,7 @@ internal sealed class TypeMapper
             return $"{MapToLuaType(implIList.GetGenericArguments()[0])}[]";
         }
 
-        // IDictionary<K, V> -> {[K]: V}
+        // IDictionary<K, V> -> { [K]: V }
         if (type.ImplementsGenericInterface(typeof(IDictionary<,>), out var implIDictionary))
         {
             var implGenericArgs = implIDictionary.GetGenericArguments();
