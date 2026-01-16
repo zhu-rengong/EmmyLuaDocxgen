@@ -57,6 +57,9 @@
 dotnet run -- config.json
 ```
 
+### 3. 生成示例
+- [息风谷战略Lua注解](https://github.com/zhu-rengong/ZhanGuoWuxiaLuaAnnotations)
+
 ## 依赖项
 
 - .NET 8.0 或更高版本
