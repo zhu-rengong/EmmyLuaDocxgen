@@ -12,10 +12,12 @@ namespace EmmyLuaDocxgen;
 internal sealed class AssemblyLoader
 {
     private readonly ILogger _logger;
+    private readonly TypeMapper _typeMapper;
 
-    public AssemblyLoader(ILogger logger)
+    public AssemblyLoader(ILogger logger, TypeMapper typeMapper)
     {
         _logger = logger;
+        _typeMapper = typeMapper;
     }
 
     public AssemblyLoadResult LoadAssembly(AssemblyConfig config)
@@ -102,11 +104,11 @@ internal sealed class AssemblyLoader
         {
             types = types.Where(t =>
             {
-                string? ns = t.Namespace;
+                string typeQualifiedName = _typeMapper.GetQualifiedTypeName(t);
                 foreach (string filter in typeFilters)
                 {
-                    if ((filter.Last() is '*' && !string.IsNullOrEmpty(ns))
-                        ? ns.StartsWith(filter[..^1])
+                    if (filter.Contains('*')
+                        ? typeQualifiedName.MatchesWildcard(filter)
                         : t == assembly.GetType(filter))
                     {
                         return true;

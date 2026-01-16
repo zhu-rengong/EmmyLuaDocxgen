@@ -19,7 +19,7 @@ internal sealed class DocumentationGenerator
         _logger = logger;
         _typeMapper = new TypeMapper(this);
         _typeGenerator = new TypeGenerator(this);
-        _assemblyLoader = new AssemblyLoader(logger);
+        _assemblyLoader = new AssemblyLoader(logger, _typeMapper);
         _fileWriter = new LuaFileWriter(logger);
     }
 
