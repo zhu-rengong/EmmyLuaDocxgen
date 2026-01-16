@@ -26,7 +26,7 @@ public sealed record LuaOverloadFunction : LuaNode
         var paramsStr = string.Join(", ", paramParts);
         var returnStr = ReturnType switch
         {
-            null or "void" => "",
+            TypeMapper.Void => "",
             "self" => ": self",
             _ => $": {ReturnType}"
         };

@@ -68,12 +68,7 @@ internal static class TypeHelper
 
     public static bool IsDelegateType(Type type)
     {
-        if (type == typeof(Delegate) || type == typeof(MulticastDelegate))
-        {
-            return false;
-        }
-
-        return type.IsSubclassOf(typeof(Delegate));
+        return typeof(Delegate).IsAssignableFrom(type);
     }
 
     public static IEnumerable<Type> GetInheritanceHierarchy(Type type)
@@ -82,6 +77,29 @@ internal static class TypeHelper
         {
             yield return current;
         }
+    }
+
+    public static bool ImplementsGenericInterface(this Type type, Type genericInterfaceDefinition)
+    {
+        if (!genericInterfaceDefinition.IsGenericTypeDefinition)
+        {
+            throw new ArgumentException("Must be a generic definition type!", nameof(genericInterfaceDefinition));
+        }
+
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == genericInterfaceDefinition)
+        {
+            return true;
+        }
+
+        foreach (var iface in type.GetInterfaces())
+        {
+            if (iface.IsGenericType && iface.GetGenericTypeDefinition() == genericInterfaceDefinition)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static string GetSimpleMemberName(MemberInfo member)

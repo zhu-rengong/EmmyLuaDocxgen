@@ -45,7 +45,7 @@ public record LuaMethod : LuaCallable
         }
 
         // Return type annotation
-        if (!string.IsNullOrEmpty(ReturnType) && ReturnType != "void")
+        if (!string.IsNullOrEmpty(ReturnType) && ReturnType != TypeMapper.Void)
         {
             lines.AppendLine($"---@return {ReturnType}");
         }
