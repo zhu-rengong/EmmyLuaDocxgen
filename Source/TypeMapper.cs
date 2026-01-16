@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Reflection;
 using System.Text;
 
@@ -149,25 +150,37 @@ internal sealed class TypeMapper
     private string MapGenericType(Type type)
     {
         var genericDef = type.GetGenericTypeDefinition();
-        var genericArgs = type.GetGenericArguments();
 
         // IList<T> -> T[]
-        if (genericDef.ImplementsGenericInterface(typeof(IList<>)))
+        if (type.ImplementsGenericInterface(typeof(IList<>), out var implIList))
         {
-            return $"{MapToLuaType(genericArgs[0])}[]";
+            return $"{MapToLuaType(implIList.GetGenericArguments()[0])}[]";
         }
 
         // IDictionary<K, V> -> {[K]: V}
-        if (genericDef.ImplementsGenericInterface(typeof(IDictionary<,>)))
+        if (type.ImplementsGenericInterface(typeof(IDictionary<,>), out var implIDictionary))
         {
-            var keyType = MapToLuaType(genericArgs[0]);
-            var valueType = MapToLuaType(genericArgs[1]);
+            var implGenericArgs = implIDictionary.GetGenericArguments();
+            var keyType = MapToLuaType(implGenericArgs[0]);
+            var valueType = MapToLuaType(implGenericArgs[1]);
             return $"{{ [{keyType}]: {valueType} }}";
+        }
+
+        // IEnumerable<T> -> fun(): T
+        if (type.ImplementsGenericInterface(typeof(IEnumerable<>), out var implIEnumerable))
+        {
+            return $"fun(): {MapToLuaType(implIEnumerable.GetGenericArguments()[0])}";
+        }
+
+        // IEnumerator<T> -> fun(): T
+        if (type.ImplementsGenericInterface(typeof(IEnumerator<>), out var implIEnumerator))
+        {
+            return $"fun(): {MapToLuaType(implIEnumerator.GetGenericArguments()[0])}";
         }
 
         if (genericDef == typeof(Nullable<>))
         {
-            return $"{MapToLuaType(genericArgs[0])}|nil";
+            return $"{MapToLuaType(type.GetGenericArguments()[0])}|nil";
         }
 
         // All other generic types map to userdata

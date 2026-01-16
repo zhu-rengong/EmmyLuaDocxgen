@@ -1,4 +1,5 @@
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
@@ -79,7 +80,7 @@ internal static class TypeHelper
         }
     }
 
-    public static bool ImplementsGenericInterface(this Type type, Type genericInterfaceDefinition)
+    public static bool ImplementsGenericInterface(this Type type, Type genericInterfaceDefinition, [NotNullWhen(true)] out Type? impl)
     {
         if (!genericInterfaceDefinition.IsGenericTypeDefinition)
         {
@@ -88,6 +89,7 @@ internal static class TypeHelper
 
         if (type.IsGenericType && type.GetGenericTypeDefinition() == genericInterfaceDefinition)
         {
+            impl = type;
             return true;
         }
 
@@ -95,10 +97,12 @@ internal static class TypeHelper
         {
             if (iface.IsGenericType && iface.GetGenericTypeDefinition() == genericInterfaceDefinition)
             {
+                impl = iface;
                 return true;
             }
         }
 
+        impl = null;
         return false;
     }
 
