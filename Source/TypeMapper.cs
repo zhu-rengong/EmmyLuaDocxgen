@@ -152,13 +152,13 @@ internal sealed class TypeMapper
         var genericArgs = type.GetGenericArguments();
 
         // IList<T> -> T[]
-        if (typeof(IList<>).IsAssignableFrom(genericDef))
+        if (genericDef.ImplementsGenericInterface(typeof(IList<>)))
         {
             return $"{MapToLuaType(genericArgs[0])}[]";
         }
 
         // IDictionary<K, V> -> {[K]: V}
-        if (typeof(IDictionary<,>).IsAssignableFrom(genericDef))
+        if (genericDef.ImplementsGenericInterface(typeof(IDictionary<,>)))
         {
             var keyType = MapToLuaType(genericArgs[0]);
             var valueType = MapToLuaType(genericArgs[1]);
