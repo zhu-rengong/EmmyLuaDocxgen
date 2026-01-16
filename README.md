@@ -21,9 +21,9 @@
   - `@package`: 程序集内**internal**成员
 - 关键泛型映射
   - `IList<T>`: `T[]`
-  - `IDictionary<K, V>` -> `{ [K]: V }`
-  - `IEnumerable<T>` `IEnumerator<T>` -> `{ [nil]: T }`
-  - `Nullable<T>` -> `T|nil`
+  - `IDictionary<K, V>`: `{ [K]: V }`
+  - `IEnumerable<T>` `IEnumerator<T>`: `{ [nil]: T }`
+  - `Nullable<T>`: `T|nil`
 - 完整的 C# 到 Lua 类型映射
 - 委托类型自动转换为函数类型
 
