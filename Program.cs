@@ -18,12 +18,13 @@ public static class Program
             return ErrorExitCode;
         }
 
+        var logger = new ConsoleLogger();
+
         try
         {
             var configPath = args[0];
             var config = await LoadConfigAsync(configPath);
 
-            var logger = new ConsoleLogger();
             var generator = new DocumentationGenerator(logger);
 
             await generator.GenerateAsync(config);
@@ -39,7 +40,7 @@ public static class Program
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error: {ex.Message}");
+            logger.LogError(ex.ToString());
             return ErrorExitCode;
         }
     }

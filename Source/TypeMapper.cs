@@ -8,6 +8,11 @@ namespace EmmyLuaDocxgen;
 /// </summary>
 internal sealed class TypeMapper
 {
+    public const string Void = "";
+
+    /// <summary>
+    /// see: https://www.moonsharp.org/mapping.html#auto-conversion-of-clr-types-to-moonsharp-types
+    /// </summary>
     public static readonly Dictionary<Type, string> LuaCompatibleTypes = new()
     {
         [typeof(object)] = "userdata",
@@ -25,6 +30,7 @@ internal sealed class TypeMapper
         [typeof(decimal)] = "number",
         [typeof(char)] = "string",
         [typeof(string)] = "string",
+        [typeof(System.Text.StringBuilder)] = "string",
         [typeof(nint)] = "integer",
         [typeof(nuint)] = "integer",
         [typeof(IntPtr)] = "integer",
@@ -48,27 +54,9 @@ internal sealed class TypeMapper
         }
 
         var result = MapTypeInternal(type);
+
         _typeCache[type] = result;
         return result;
-    }
-
-    public string MapToLuaTypeForVariadic(Type type)
-    {
-        if (type.IsArray)
-        {
-            return MapToLuaType(type.GetElementType()!);
-        }
-        return MapToLuaType(type);
-    }
-
-    public string MapMethodReturnType(Type type)
-    {
-        if (type == typeof(void))
-        {
-            return "void";
-        }
-
-        return type.IsGenericType ? "userdata" : MapTypeInternal(type);
     }
 
     public string GetQualifiedTypeName(Type type)
@@ -113,16 +101,21 @@ internal sealed class TypeMapper
 
     private string MapTypeInternal(Type type)
     {
+        if (type == typeof(void))
+        {
+            return Void;
+        }
+
         // Handle generic method params
         if (type.IsGenericMethodParameter)
         {
             return type.Name;
         }
 
-        // Handle generic types
-        if (type.IsGenericType)
+        // Handle enums
+        if (type.IsEnum)
         {
-            return MapGenericType(type);
+            return GetQualifiedTypeName(type);
         }
 
         // Handle arrays
@@ -137,17 +130,17 @@ internal sealed class TypeMapper
             return MapTypeInternal(type.GetElementType()!);
         }
 
-        // Handle enums
-        if (type.IsEnum)
-        {
-            return GetQualifiedTypeName(type);
-        }
-
         // Handle delegates
         if (TypeHelper.IsDelegateType(type))
         {
             var (parameters, returnType) = DelegateParser.Parse(type, _docxgen.TypeGenerator, this);
-            return GenerateFunctionType(parameters, returnType);
+            return ParseToStringRepresentation(parameters, returnType);
+        }
+
+        // Handle generic types
+        if (type.IsGenericType)
+        {
+            return MapGenericType(type);
         }
 
         return GetQualifiedTypeName(type);
@@ -158,14 +151,14 @@ internal sealed class TypeMapper
         var genericDef = type.GetGenericTypeDefinition();
         var genericArgs = type.GetGenericArguments();
 
-        // List<T> -> T[]
-        if (genericDef == typeof(List<>))
+        // IList<T> -> T[]
+        if (typeof(IList<>).IsAssignableFrom(genericDef))
         {
             return $"{MapToLuaType(genericArgs[0])}[]";
         }
 
-        // Dictionary<K, V> -> {[K]: V}
-        if (genericDef == typeof(Dictionary<,>))
+        // IDictionary<K, V> -> {[K]: V}
+        if (typeof(IDictionary<,>).IsAssignableFrom(genericDef))
         {
             var keyType = MapToLuaType(genericArgs[0]);
             var valueType = MapToLuaType(genericArgs[1]);
@@ -181,10 +174,10 @@ internal sealed class TypeMapper
         return "userdata";
     }
 
-    private static string GenerateFunctionType(List<LuaParameter> parameters, string returnType)
+    private static string ParseToStringRepresentation(List<LuaParameter> parameters, string returnType)
     {
-        var paramStr = string.Join(", ", parameters.Select(p => $"{p.Name}: {p.Type}"));
-        var returnStr = returnType == "void" ? "" : $": {returnType}";
+        var paramStr = LuaCallable.GenerateParameterList(parameters, forAnnotation: true);
+        var returnStr = returnType == Void ? "" : $": {returnType}";
         return $"fun({paramStr}){returnStr}";
     }
 }

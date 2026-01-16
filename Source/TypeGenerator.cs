@@ -83,8 +83,7 @@ internal sealed class TypeGenerator
 
     private List<string> CollectBaseTypes(Type clrType, out bool isPrimaryBaseUserdata)
     {
-        Type[] interfaces = clrType.GetInterfaces();
-        var baseTypes = new List<string>(3 + interfaces.Length);
+        var baseTypes = new List<string>(3);
 
         var baseType = clrType.BaseType;
         isPrimaryBaseUserdata = false;
@@ -98,12 +97,6 @@ internal sealed class TypeGenerator
         else if (!clrType.IsInterface && clrType != typeof(object))
         {
             baseTypes.Add(_docxgen.TypeMapper.GetQualifiedTypeName(typeof(object)));
-        }
-
-        foreach (Type i in interfaces)
-        {
-            if (i.IsGenericType) { continue; }
-            baseTypes.Add(_docxgen.TypeMapper.GetQualifiedTypeName(i));
         }
 
         if (TypeMapper.LuaCompatibleTypes.TryGetValue(clrType, out var compatibleType))
@@ -163,15 +156,6 @@ internal sealed class TypeGenerator
             AccessModifier = accessModifier
         };
 
-        if (TypeHelper.IsDelegateType(fieldType))
-        {
-            var (delegateParams, returnType) = DelegateParser.Parse(fieldType, this, _docxgen.TypeMapper);
-            field = field with
-            {
-                Type = GenerateFunctionType(delegateParams, returnType)
-            };
-        }
-
         return field;
     }
 
@@ -196,7 +180,7 @@ internal sealed class TypeGenerator
 
             LuaOperator? luaOperator = new()
             {
-                ResultingType = _docxgen.TypeMapper.MapMethodReturnType(method.ReturnType)
+                ResultingType = _docxgen.TypeMapper.MapToLuaType(method.ReturnType)
             };
 
             luaOperator = method switch
@@ -215,7 +199,7 @@ internal sealed class TypeGenerator
                 {
                     luaOperator = luaOperator with
                     {
-                        InputType = _docxgen.TypeMapper.MapMethodReturnType(parameterTypes[1])
+                        InputType = _docxgen.TypeMapper.MapToLuaType(parameterTypes[1])
                     };
                 }
                 luaClass.Operators.Add(luaOperator);
@@ -249,7 +233,7 @@ internal sealed class TypeGenerator
         foreach (var methodGroup in methodGroups)
         {
             var primaryMethod = methodGroup.Overloads[0];
-            string luaReturnType = _docxgen.TypeMapper.MapMethodReturnType(primaryMethod.ReturnType);
+            string luaReturnType = _docxgen.TypeMapper.MapToLuaType(primaryMethod.ReturnType);
             var parameters = GenerateParameters(primaryMethod);
 
             var luaMethod = new LuaMethod
@@ -268,8 +252,8 @@ internal sealed class TypeGenerator
                 return new LuaOverloadFunction
                 {
                     IsMethodCallWithImplicitSelf = !overloadMethod.IsStatic,
-                    Parameters = GenerateParameters(overloadMethod),
-                    ReturnType = _docxgen.TypeMapper.MapMethodReturnType(overloadMethod.ReturnType)
+                    Parameters = GenerateParameters(overloadMethod, takeOperatorPrecedenceIntoAccount: true),
+                    ReturnType = _docxgen.TypeMapper.MapToLuaType(overloadMethod.ReturnType)
                 };
             }));
 
@@ -280,14 +264,14 @@ internal sealed class TypeGenerator
     private void GenerateGenericMethods(Type clrType, LuaClass luaClass, bool findAllMembers = false)
     {
         var className = _docxgen.TypeMapper.GetQualifiedTypeName(clrType);
-        
+
         var genericMethods = (findAllMembers ? TypeHelper.GetInheritanceHierarchy(clrType) : [clrType])
             .SelectMany(t => t.GetMethods(AllBindingFlags))
             .Where(method => TypeHelper.IsSupportedGenericMethod(method) && !TypeHelper.IsCompilerGenerated(method));
 
         foreach (var method in genericMethods)
         {
-            string luaReturnType = _docxgen.TypeMapper.MapMethodReturnType(method.ReturnType);
+            string luaReturnType = _docxgen.TypeMapper.MapToLuaType(method.ReturnType);
             var genericParameters = GenerateGenericParameters(method);
 
             var luaMethod = new LuaGenericMethod
@@ -325,22 +309,27 @@ internal sealed class TypeGenerator
         luaCtor.Overloads.AddRange(ctors.Skip(1).Select(overloadCtor => new LuaOverloadFunction
         {
             IsMethodCallWithImplicitSelf = false,
-            Parameters = GenerateParameters(overloadCtor),
+            Parameters = GenerateParameters(overloadCtor, takeOperatorPrecedenceIntoAccount: true),
             ReturnType = className
         }));
 
         luaClass.Constructors.Add(luaCtor);
     }
 
-    public List<LuaParameter> GenerateParameters(MethodBase method)
+    public List<LuaParameter> GenerateParameters(MethodBase method, bool takeOperatorPrecedenceIntoAccount = false)
     {
         return method.GetParameters()
             .Select(p =>
             {
                 var isVariadic = p.IsDefined(typeof(ParamArrayAttribute), inherit: false);
-                var paramType = isVariadic
-                    ? _docxgen.TypeMapper.MapToLuaTypeForVariadic(p.ParameterType)
-                    : _docxgen.TypeMapper.MapToLuaType(p.ParameterType);
+                var paramType = _docxgen.TypeMapper.MapToLuaType(isVariadic
+                    ? p.ParameterType.GetElementType()!
+                    : p.ParameterType);
+
+                if (takeOperatorPrecedenceIntoAccount && TypeHelper.IsDelegateType(p.ParameterType))
+                {
+                    paramType = $"({paramType})";
+                }
 
                 return new LuaParameter(
                     EscapeLuaKeyword(p.Name ?? "arg"),
@@ -386,12 +375,5 @@ internal sealed class TypeGenerator
                 return new LuaGenericParameter(genericArg.Name, constraint);
             })
             .ToList();
-    }
-
-    private static string GenerateFunctionType(List<LuaParameter> parameters, string returnType)
-    {
-        var paramStr = LuaCallable.GenerateParameterList(parameters, forAnnotation: true);
-        var returnStr = returnType == "void" ? "" : $": {returnType}";
-        return $"fun({paramStr}){returnStr}";
     }
 }

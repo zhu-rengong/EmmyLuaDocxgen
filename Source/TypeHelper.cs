@@ -68,12 +68,7 @@ internal static class TypeHelper
 
     public static bool IsDelegateType(Type type)
     {
-        if (type == typeof(Delegate) || type == typeof(MulticastDelegate))
-        {
-            return false;
-        }
-
-        return type.IsSubclassOf(typeof(Delegate));
+        return typeof(Delegate).IsAssignableFrom(type);
     }
 
     public static IEnumerable<Type> GetInheritanceHierarchy(Type type)

@@ -13,10 +13,11 @@ public sealed record LuaOverloadFunction : LuaNode
     {
         var paramParts = new List<string>(2);
 
-        if (IsMethodCallWithImplicitSelf)
-        {
-            paramParts.Add("self: self");
-        }
+        // see: Source/LuaMethod.cs
+        // if (IsMethodCallWithImplicitSelf)
+        // {
+        //     paramParts.Add("self: self");
+        // }
 
         if (LuaCallable.GenerateParameterList(Parameters, forAnnotation: true) is string { Length: > 0 } paramsList)
         {
@@ -26,7 +27,7 @@ public sealed record LuaOverloadFunction : LuaNode
         var paramsStr = string.Join(", ", paramParts);
         var returnStr = ReturnType switch
         {
-            null or "void" => "",
+            TypeMapper.Void => "",
             "self" => ": self",
             _ => $": {ReturnType}"
         };
