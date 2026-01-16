@@ -5,18 +5,23 @@
 ## 功能特性
 
 - 基于 .NET 反射读取 DLL 程序集
-- 可生成的类型注解
-  - `@enum name` 枚举，映射为`table`
-  - `@class name : base, interface, ...` 类，支持基类、接口
-- 可生成的成员
-  - `field` 字段
-  - `property` 属性 | `indexer` 索引器
-  - `method` 方法 | `constructor` 构造器，支持重载、异步、由 **xLua** 自动解释的泛型、可选参数、可变参数
-  - `@operator` 运算符重载，支持 `add` `sub` `mul` `div` `unm`
-- 可生成的成员访问修饰符
-  - `@private` 私有成员
-  - `@protected` 受保护成员
-  - `@package` 程序集内**internal**成员
+- 包括类型注解
+  - `@enum name`: 枚举，映射为`table`
+  - `@class name : base, interface, ...`: 类，支持基类、接口
+- 包括成员
+  - `field`: 字段
+  - `property`: 属性 | `indexer` 索引器
+  - `method`: 方法 | `constructor` 构造器，支持重载、异步、由 **xLua** 自动解释的泛型、可选参数、可变参数
+  - `@operator`: 运算符重载，支持 `add` `sub` `mul` `div` `unm`
+- 成员访问修饰符
+  - `@private`: 私有成员
+  - `@protected`: 受保护成员
+  - `@package`: 程序集内**internal**成员
+- 关键泛型映射
+  - `IList<T>`: `T[]`
+  - `IDictionary<K, V>` -> `{ [K]: V }`
+  - `IEnumerable<T>` `IEnumerator<T>` -> `{ [nil]: T }`
+  - `Nullable<T>` -> `T|nil`
 - 完整的 C# 到 Lua 类型映射
 - 委托类型自动转换为函数类型
 
@@ -67,8 +72,9 @@ dotnet run -- config.json
 ## 注意事项
 - 生成的文档使用 `CS.` 前缀命名空间，与 xLua 保持一致
 - Lua 关键字会自动转义（如 `and` 转为 `__and__`）
-- 泛型类型（除 `List<>`、`Dictionary<>`、`Nullable<>`）映射为 `userdata`
+- 除了关键泛型外，均会被映射为 `userdata`
 - 编译器生成的成员会被自动过滤
 - 运算符重载的第一个参数类型必须与声明类相同
 - 不支持多维索引器
+
 
