@@ -118,6 +118,8 @@ public static class StringExtensions
 
             if (start < pos || !s.Slice(start).SequenceEqual(tokenSpan))
                 return false;
+
+            return true;
         }
 
         var endIdx = suffixWildcard ? tokenCount : tokenCount - 1;
@@ -132,6 +134,6 @@ public static class StringExtensions
             pos += matchPos + tokenSpan.Length;
         }
 
-        return suffixWildcard || pos == s.Length;
+        return true;
     }
 }
