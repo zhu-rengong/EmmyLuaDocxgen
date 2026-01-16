@@ -44,7 +44,9 @@ public sealed record LuaGenericMethod : LuaMethod
         }
 
         // Function declaration
-        var callNotation = IsMethodCallWithImplicitSelf ? ":" : ".";
+        // var callNotation = IsMethodCallWithImplicitSelf ? ":" : ".";
+        // see: Source/LuaMethod.cs
+        var callNotation = ".";
         var paramsStr = GenerateParameterList(Parameters, forAnnotation: false);
         lines.AppendLine($"function CS.{ClassName}{callNotation}{Name}({paramsStr}) end");
 
