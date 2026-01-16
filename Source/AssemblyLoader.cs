@@ -51,18 +51,6 @@ internal sealed class AssemblyLoader
 
         try
         {
-            if (assembly.IsDefined(typeof(AssemblyMetadataAttribute)))
-            {
-                _logger.LogWarning($"This is a Assembly Metadata: {assembly}");
-
-                if (assembly.GetName().Name == "System.Runtime")
-                {
-                    assembly = typeof(object).Assembly;
-                    _logger.LogWarning($"Forward to: {assembly.Location}");
-                }
-
-            }
-
             var types = CollectTypes(assembly, config.Types);
             _logger.LogInfo($"Found {types.Count} types to generate");
 
@@ -96,6 +84,7 @@ internal sealed class AssemblyLoader
         }
 
         var types = assembly.GetTypes()
+            .Concat(assembly.GetForwardedTypes())
             .Where(t => !t.IsGenericType && !t.IsSpecialName
                 && !TypeHelper.IsCompilerGenerated(t)
                 && !t.IsDefined(typeof(GeneratedCodeAttribute), inherit: false));
