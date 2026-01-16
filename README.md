@@ -10,8 +10,10 @@
   - `@class name : base, interface, ...`: 类，支持基类、接口
 - 包括成员
   - `field`: 字段
-  - `property`: 属性 | `indexer` 索引器
-  - `method`: 方法 | `constructor` 构造器，支持重载、异步、由 **xLua** 自动解释的泛型、可选参数、可变参数
+  - `property`: 属性
+  - `indexer`: 索引器
+  - `method`: 方法，支持重载、异步、由 **xLua** 自动解释的泛型、可选参数、可变参数
+  - `constructor`: 构造器，支持度同上
   - `@operator`: 运算符重载，支持 `add` `sub` `mul` `div` `unm`
 - 成员访问修饰符
   - `@private`: 私有成员
