@@ -185,13 +185,13 @@ internal sealed class TypeMapper
         // IEnumerable<T> -> fun(): T
         if (type.ImplementsGenericInterface(typeof(IEnumerable<>), out var implIEnumerable))
         {
-            return new($"fun(): {MapToLuaType(implIEnumerable.GetGenericArguments()[0], considerOpPrec: true)}", true);
+            return new($"fun(): {MapToLuaType(implIEnumerable.GetGenericArguments()[0])}", true);
         }
 
         // IEnumerator<T> -> fun(): T
         if (type.ImplementsGenericInterface(typeof(IEnumerator<>), out var implIEnumerator))
         {
-            return new($"fun(): {MapToLuaType(implIEnumerator.GetGenericArguments()[0], considerOpPrec: true)}", true);
+            return new($"fun(): {MapToLuaType(implIEnumerator.GetGenericArguments()[0])}", true);
         }
 
         if (genericDef == typeof(Nullable<>))
