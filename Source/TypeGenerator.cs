@@ -128,29 +128,27 @@ internal sealed class TypeGenerator
     {
         var types = findAllMembers ? TypeHelper.GetInheritanceHierarchy(clrType) : [clrType];
 
-        HashSet<string> hidingProperties = [];
+        HashSet<string> visitedNames = [];
 
         foreach (PropertyInfo property in types.SelectMany(t => t.GetProperties(AllBindingFlags))
                                             .Where(p => p.GetIndexParameters().Length == 0))
         {
-            if (TypeHelper.IsCompilerGenerated(property) || hidingProperties.Contains(property.Name)) continue;
+            if (TypeHelper.IsCompilerGenerated(property) || visitedNames.Contains(property.Name)) continue;
 
             var field = GenerateField(TypeHelper.GetComplexMemberNameIfNecessary(property), property.PropertyType, property.AccessModifierMappingToLua());
             luaClass.Fields.Add(field);
 
-            if ((property.GetMethod != null && TypeHelper.IsBaseDefMethod(property.GetMethod))
-                || (property.SetMethod != null && TypeHelper.IsBaseDefMethod(property.SetMethod)))
-            {
-                hidingProperties.Add(property.Name);
-            }
+            visitedNames.Add(property.Name);
         }
 
         foreach (FieldInfo field in types.SelectMany(t => t.GetFields(AllBindingFlags)))
         {
-            if (TypeHelper.IsCompilerGenerated(field)) continue;
+            if (TypeHelper.IsCompilerGenerated(field) || visitedNames.Contains(field.Name)) continue;
 
             var luaField = GenerateField(TypeHelper.GetComplexMemberNameIfNecessary(field), field.FieldType, field.AccessModifierMappingToLua());
             luaClass.Fields.Add(luaField);
+
+            visitedNames.Add(field.Name);
         }
     }
 
