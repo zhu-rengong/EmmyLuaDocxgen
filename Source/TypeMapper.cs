@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Immutable;
 using System.Reflection;
 using System.Text;
 
@@ -37,6 +38,8 @@ internal sealed class TypeMapper
         [typeof(IntPtr)] = "integer",
         [typeof(UIntPtr)] = "integer"
     };
+
+    public static ImmutableDictionary<Type, string> LuaCompatibleTypes => _luaCompatibleTypes.ToImmutableDictionary();
 
     public sealed record MapResult(string Name, bool EnhanceOpPrecIfNecessary);
 
@@ -166,20 +169,44 @@ internal sealed class TypeMapper
             return new(qualifiedName, false);
         }
 
-        List<string> compositeName = new(8) { qualifiedName };
+        CompositeType compositeType = new(8);
+        compositeType.AddPart(qualifiedName, false);
+        compositeType.AddPartsByCollectingFrom(type, this);
 
-        AddCompositeTypes(type, compositeName, out bool isNecessaryToEnhanceOpPrec);
+        return compositeType.GetMapResult();
+    }
+}
 
-        return new(string.Join(" | ", compositeName), isNecessaryToEnhanceOpPrec || compositeName.Count > 1);
+internal sealed class CompositeType
+{
+    public sealed record Part(string Name, bool EnhanceOpPrecIfNecessary);
+    private bool isFun = false;
+
+    private List<Part> _parts { get; init; }
+
+    public CompositeType(int capacity)
+    {
+        _parts = new(capacity);
     }
 
-    public void AddCompositeTypes(Type type, List<string> compositeName, out bool isNecessaryToEnhanceOpPrec)
+    public void AddPart(string name, bool enhanceOpPrecIfNecessary)
     {
-        isNecessaryToEnhanceOpPrec = false;
+        _parts.Add(new(name, enhanceOpPrecIfNecessary));
+    }
 
-        if (_luaCompatibleTypes.TryGetValue(type, out var compatibleType))
+    public string StringRepresentation => _parts.Count > 1
+        ? string.Join(" | ", _parts.Select(t => t.EnhanceOpPrecIfNecessary ? $"({t.Name})" : t.Name))
+        : (_parts.Any() ? _parts[0].Name : string.Empty);
+
+    public int Count => _parts.Count;
+
+    public TypeMapper.MapResult GetMapResult() => new(StringRepresentation, isFun || Count > 1);
+
+    public void AddPartsByCollectingFrom(Type type, TypeMapper typeMapper)
+    {
+        if (TypeMapper.LuaCompatibleTypes.TryGetValue(type, out var compatibleTypeName))
         {
-            compositeName.Add(compatibleType);
+            AddPart(compatibleTypeName, false);
         }
 
         // Handle indexers
@@ -189,9 +216,9 @@ internal sealed class TypeMapper
             {
                 if (propertyInfo.GetIndexParameters() is { Length: 1 } indexParams)
                 {
-                    string key = _docxgen.TypeMapper.GetQualifiedTypeName(indexParams[0].ParameterType);
-                    string value = _docxgen.TypeMapper.GetQualifiedTypeName(propertyInfo.PropertyType);
-                    compositeName.Add($"{{ [{key}]: {value} }}");
+                    string key = typeMapper.MapToLuaType(indexParams[0].ParameterType);
+                    string value = typeMapper.MapToLuaType(propertyInfo.PropertyType);
+                    AddPart($"{{ [{key}]: {value} }}", false);
                 }
             }
         }
@@ -199,15 +226,15 @@ internal sealed class TypeMapper
         // IEnumerable<T> -> fun(): T
         if (type.ImplementsGenericInterface(typeof(IEnumerable<>), out var implIEnumerable))
         {
-            compositeName.Add($"fun(): {MapToLuaType(implIEnumerable.GetGenericArguments()[0])}");
-            isNecessaryToEnhanceOpPrec = true;
+            AddPart($"fun(): {typeMapper.MapToLuaType(implIEnumerable.GetGenericArguments()[0])}", true);
+            isFun = true;
         }
 
         // IEnumerator<T> -> fun(): T
         if (type.ImplementsGenericInterface(typeof(IEnumerator<>), out var implIEnumerator))
         {
-            compositeName.Add($"fun(): {MapToLuaType(implIEnumerator.GetGenericArguments()[0])}");
-            isNecessaryToEnhanceOpPrec = true;
+            AddPart($"fun(): {typeMapper.MapToLuaType(implIEnumerator.GetGenericArguments()[0])}", true);
+            isFun = true;
         }
     }
 }

@@ -99,7 +99,13 @@ internal sealed class TypeGenerator
             baseTypes.Add(_docxgen.TypeMapper.GetQualifiedTypeName(typeof(object)));
         }
 
-        _docxgen.TypeMapper.AddCompositeTypes(clrType, baseTypes, out _);
+        var compositeType = new CompositeType(3);
+        compositeType.AddPartsByCollectingFrom(clrType, _docxgen.TypeMapper);
+
+        if (!string.IsNullOrEmpty(compositeType.StringRepresentation))
+        {
+            baseTypes.Add(compositeType.StringRepresentation);
+        }
 
         return baseTypes;
     }
