@@ -66,6 +66,7 @@ internal sealed class AssemblyLoader
 
     private List<Type> CollectTypes(Assembly assembly, List<string> typeFilters)
     {
+        HashSet<string> filterUnused = typeFilters.ToHashSet();
 
         var duplicates = typeFilters.GroupBy(tf => tf)
                        .Where(g => g.Count() > 1)
@@ -79,7 +80,7 @@ internal sealed class AssemblyLoader
                 _logger.LogWarning($"\"{filter}\"".Tab(4));
             }
 
-            typeFilters = new HashSet<string>(typeFilters).ToList();
+            typeFilters = filterUnused.ToList();
             _logger.LogWarning($"Removed duplicates!");
         }
 
@@ -89,25 +90,35 @@ internal sealed class AssemblyLoader
                 && !TypeHelper.IsCompilerGenerated(t)
                 && !t.IsDefined(typeof(GeneratedCodeAttribute), inherit: false));
 
-        if (!typeFilters.Contains("*"))
+        if (typeFilters.Contains("*")) { return types.ToList(); }
+
+        types = types.Where(t =>
         {
-            types = types.Where(t =>
+            foreach (string filter in typeFilters)
             {
-                string typeQualifiedName = _typeMapper.GetQualifiedTypeName(t);
-                foreach (string filter in typeFilters)
+                if (filter.Contains('*')
+                    ? _typeMapper.GetQualifiedTypeName(t).MatchesWildcard(filter)
+                    : t == assembly.GetType(filter))
                 {
-                    if (filter.Contains('*')
-                        ? typeQualifiedName.MatchesWildcard(filter)
-                        : t == assembly.GetType(filter))
-                    {
-                        return true;
-                    }
+                    filterUnused.Remove(filter);
+                    return true;
                 }
-                return false;
-            });
+            }
+            return false;
+        });
+
+        var result = types.ToList();
+
+        if (filterUnused.Any())
+        {
+            _logger.LogWarning($"Unused type filter:");
+            foreach (string filter in filterUnused)
+            {
+                _logger.LogWarning(filter.Tab(4));
+            }
         }
 
-        return types.ToList();
+        return result;
     }
 
     private void LogLoaderExceptions(Exception ex)
