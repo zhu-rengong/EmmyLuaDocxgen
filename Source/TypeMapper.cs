@@ -14,7 +14,7 @@ internal sealed class TypeMapper
     /// <summary>
     /// see: https://www.moonsharp.org/mapping.html#auto-conversion-of-clr-types-to-moonsharp-types
     /// </summary>
-    public static readonly Dictionary<Type, string> LuaCompatibleTypes = new()
+    private static readonly Dictionary<Type, string> _luaCompatibleTypes = new()
     {
         [typeof(object)] = "userdata",
         [typeof(bool)] = "boolean",
@@ -154,51 +154,60 @@ internal sealed class TypeMapper
             return new($"fun({paramStr}){returnStr}", true);
         }
 
-        // Handle generic types
-        if (type.IsGenericType)
+        // Handle nullable types
+        if (Nullable.GetUnderlyingType(type) is Type underlyingType)
         {
-            return MapGenericType(type);
+            return new($"{MapToLuaType(underlyingType, considerOpPrec: true)}|nil", true);
         }
 
-        return new(GetQualifiedTypeName(type), false);
+        string qualifiedName = GetQualifiedTypeName(type);
+        if (qualifiedName != "userdata")
+        {
+            return new(qualifiedName, false);
+        }
+
+        List<string> compositeName = new(8) { qualifiedName };
+
+        AddCompositeTypes(type, compositeName, out bool isNecessaryToEnhanceOpPrec);
+
+        return new(string.Join(" | ", compositeName), isNecessaryToEnhanceOpPrec || compositeName.Count > 1);
     }
 
-    private MapResult MapGenericType(Type type)
+    public void AddCompositeTypes(Type type, List<string> compositeName, out bool isNecessaryToEnhanceOpPrec)
     {
-        var genericDef = type.GetGenericTypeDefinition();
+        isNecessaryToEnhanceOpPrec = false;
 
-        // IList<T> -> T[]
-        if (type.ImplementsGenericInterface(typeof(IList<>), out var implIList))
+        if (_luaCompatibleTypes.TryGetValue(type, out var compatibleType))
         {
-            return new($"{MapToLuaType(implIList.GetGenericArguments()[0], considerOpPrec: true)}[]", false);
+            compositeName.Add(compatibleType);
         }
 
-        // IDictionary<K, V> -> { [K]: V }
-        if (type.ImplementsGenericInterface(typeof(IDictionary<,>), out var implIDictionary))
+        // Handle indexers
+        foreach (var iterT in type.GetInheritanceHierarchy())
         {
-            var implGenericArgs = implIDictionary.GetGenericArguments();
-            var keyType = MapToLuaType(implGenericArgs[0]);
-            var valueType = MapToLuaType(implGenericArgs[1]);
-            return new($"{{ [{keyType}]: {valueType} }}", false);
+            foreach (var propertyInfo in iterT.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (propertyInfo.GetIndexParameters() is { Length: 1 } indexParams)
+                {
+                    string key = _docxgen.TypeMapper.GetQualifiedTypeName(indexParams[0].ParameterType);
+                    string value = _docxgen.TypeMapper.GetQualifiedTypeName(propertyInfo.PropertyType);
+                    compositeName.Add($"{{ [{key}]: {value} }}");
+                }
+            }
         }
 
         // IEnumerable<T> -> fun(): T
         if (type.ImplementsGenericInterface(typeof(IEnumerable<>), out var implIEnumerable))
         {
-            return new($"fun(): {MapToLuaType(implIEnumerable.GetGenericArguments()[0])}", true);
+            compositeName.Add($"fun(): {MapToLuaType(implIEnumerable.GetGenericArguments()[0])}");
+            isNecessaryToEnhanceOpPrec = true;
         }
 
         // IEnumerator<T> -> fun(): T
         if (type.ImplementsGenericInterface(typeof(IEnumerator<>), out var implIEnumerator))
         {
-            return new($"fun(): {MapToLuaType(implIEnumerator.GetGenericArguments()[0])}", true);
+            compositeName.Add($"fun(): {MapToLuaType(implIEnumerator.GetGenericArguments()[0])}");
+            isNecessaryToEnhanceOpPrec = true;
         }
-
-        if (genericDef == typeof(Nullable<>))
-        {
-            return new($"{MapToLuaType(type.GetGenericArguments()[0], considerOpPrec: true)}|nil", true);
-        }
-
-        return new(GetQualifiedTypeName(type), false);
     }
 }
