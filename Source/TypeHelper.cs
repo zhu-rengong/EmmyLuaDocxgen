@@ -72,7 +72,7 @@ internal static class TypeHelper
         return typeof(Delegate).IsAssignableFrom(type);
     }
 
-    public static IEnumerable<Type> GetInheritanceHierarchy(Type type)
+    public static IEnumerable<Type> GetInheritanceHierarchy(this Type type)
     {
         for (var current = type; current != null; current = current.BaseType)
         {

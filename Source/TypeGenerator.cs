@@ -84,7 +84,7 @@ internal sealed class TypeGenerator
     private List<string> CollectBaseTypes(Type clrType, out bool isPrimaryBaseUserdata)
     {
         Type[] interfaces = clrType.GetInterfaces();
-        var baseTypes = new List<string>(3 + interfaces.Length);
+        var baseTypes = new List<string>(8 + interfaces.Length);
 
         var baseType = clrType.BaseType;
         isPrimaryBaseUserdata = false;
@@ -106,20 +106,7 @@ internal sealed class TypeGenerator
             baseTypes.Add(_docxgen.TypeMapper.GetQualifiedTypeName(i));
         }
 
-        if (TypeMapper.LuaCompatibleTypes.TryGetValue(clrType, out var compatibleType))
-        {
-            baseTypes.Add(compatibleType);
-        }
-
-        foreach (var propertyInfo in clrType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
-        {
-            if (propertyInfo.GetIndexParameters() is { Length: 1 } indexParams)
-            {
-                string key = _docxgen.TypeMapper.GetQualifiedTypeName(indexParams[0].ParameterType);
-                string value = _docxgen.TypeMapper.GetQualifiedTypeName(propertyInfo.PropertyType);
-                baseTypes.Add($"{{ [{key}]: {value} }}");
-            }
-        }
+        _docxgen.TypeMapper.AddCompositeTypes(clrType, baseTypes, out _);
 
         return baseTypes;
     }

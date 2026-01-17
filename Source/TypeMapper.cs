@@ -11,7 +11,10 @@ internal sealed class TypeMapper
 {
     public const string Void = "";
 
-    public static readonly Dictionary<Type, string> LuaCompatibleTypes = new()
+    /// <summary>
+    /// see: https://github.com/Tencent/xLua/blob/master/Assets/XLua/Doc/XLua_API.md#%E7%B1%BB%E5%9E%8B%E6%98%A0%E5%B0%84
+    /// </summary>
+    private static readonly Dictionary<Type, string> _luaCompatibleTypes = new()
     {
         [typeof(object)] = "userdata",
         [typeof(bool)] = "boolean",
@@ -150,51 +153,60 @@ internal sealed class TypeMapper
             return new($"fun({paramStr}){returnStr}", true);
         }
 
-        // Handle generic types
-        if (type.IsGenericType)
+        // Handle nullable types
+        if (Nullable.GetUnderlyingType(type) is Type underlyingType)
         {
-            return MapGenericType(type);
+            return new($"{MapToLuaType(underlyingType, considerOpPrec: true)}|nil", true);
         }
 
-        return new(GetQualifiedTypeName(type), false);
+        string qualifiedName = GetQualifiedTypeName(type);
+        if (qualifiedName != "userdata")
+        {
+            return new(qualifiedName, false);
+        }
+
+        List<string> compositeName = new(8) { qualifiedName };
+
+        AddCompositeTypes(type, compositeName, out bool isNecessaryToEnhanceOpPrec);
+
+        return new(string.Join(" | ", compositeName), isNecessaryToEnhanceOpPrec || compositeName.Count > 1);
     }
 
-    private MapResult MapGenericType(Type type)
+    public void AddCompositeTypes(Type type, List<string> compositeName, out bool isNecessaryToEnhanceOpPrec)
     {
-        var genericDef = type.GetGenericTypeDefinition();
+        isNecessaryToEnhanceOpPrec = false;
 
-        // IList<T> -> T[]
-        if (type.ImplementsGenericInterface(typeof(IList<>), out var implIList))
+        if (_luaCompatibleTypes.TryGetValue(type, out var compatibleType))
         {
-            return new($"{MapToLuaType(implIList.GetGenericArguments()[0], considerOpPrec: true)}[]", false);
+            compositeName.Add(compatibleType);
         }
 
-        // IDictionary<K, V> -> { [K] : V }
-        if (type.ImplementsGenericInterface(typeof(IDictionary<,>), out var implIDictionary))
+        // Handle indexers
+        foreach (var iterT in type.GetInheritanceHierarchy())
         {
-            var implGenericArgs = implIDictionary.GetGenericArguments();
-            var keyType = MapToLuaType(implGenericArgs[0]);
-            var valueType = MapToLuaType(implGenericArgs[1]);
-            return new($"{{ [{keyType}]: {valueType} }}", false);
+            foreach (var propertyInfo in iterT.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (propertyInfo.GetIndexParameters() is { Length: 1 } indexParams)
+                {
+                    string key = _docxgen.TypeMapper.GetQualifiedTypeName(indexParams[0].ParameterType);
+                    string value = _docxgen.TypeMapper.GetQualifiedTypeName(propertyInfo.PropertyType);
+                    compositeName.Add($"{{ [{key}]: {value} }}");
+                }
+            }
         }
 
         // IEnumerable<T> -> { [nil]: T }
         if (type.ImplementsGenericInterface(typeof(IEnumerable<>), out var implIEnumerable))
         {
-            return new($"{{ [nil]: {MapToLuaType(implIEnumerable.GetGenericArguments()[0])} }}", false);
+            compositeName.Add($"{{ [nil]: {MapToLuaType(implIEnumerable.GetGenericArguments()[0])} }}");
+            isNecessaryToEnhanceOpPrec = true;
         }
 
         // IEnumerator<T> -> { [nil]: T }
         if (type.ImplementsGenericInterface(typeof(IEnumerator<>), out var implIEnumerator))
         {
-            return new($"{{ [nil]: {MapToLuaType(implIEnumerator.GetGenericArguments()[0])} }}", false);
+            compositeName.Add($"{{ [nil]: {MapToLuaType(implIEnumerator.GetGenericArguments()[0])} }}");
+            isNecessaryToEnhanceOpPrec = true;
         }
-
-        if (genericDef == typeof(Nullable<>))
-        {
-            return new($"{MapToLuaType(type.GetGenericArguments()[0], considerOpPrec: true)}|nil", true);
-        }
-
-        return new(GetQualifiedTypeName(type), false);
     }
 }
