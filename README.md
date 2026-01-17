@@ -1,38 +1,38 @@
-# EmmyLua Documentation Generator
+**English | [简体中文](./README.zh-CN.md)**
 
-通过读取 C# 程序集，将其中的类型转换为遵循 [xLua](https://github.com/Tencent/xLua) 和 [Lua Language Server](https://github.com/LuaLS/lua-language-server) 标准的 [EmmyLua](https://emmylua.github.io/index.html) 文档。
+# EmmyLua Doc Generator
 
-## 功能特性
+This tool loads C# assemblies and converts their types into [EmmyLua](https://emmylua.github.io/index.html) documentation following the standards of [xLua](https://github.com/Tencent/xLua) and the [LuaLS](https://github.com/LuaLS/lua-language-server).
 
-- 基于 .NET 反射读取 DLL 程序集
-- 包括类型注解
-  - `@enum name`: 枚举，映射为`table`
-  - `@class name : base, interface, ...`: 类，支持基类、接口
-- 包括成员
-  - `field`: 字段
-  - `property`: 属性
-  - `indexer`: 索引器
-  - `method`: 方法，支持重载、异步、由 **xLua** 自动解释的泛型、可选参数、可变参数
-  - `constructor`: 构造器，支持度同上
-  - `@operator`: 运算符重载，支持 `add` `sub` `mul` `div` `unm`
-- 成员访问修饰符
-  - `@private`: 私有成员
-  - `@protected`: 受保护成员
-  - `@package`: 程序集内**internal**成员
-- 关键泛型映射
-  - `IList<T>`: `T[]`
-  - `IDictionary<K, V>`: `{ [K]: V }`
-  - `IEnumerable<T>` `IEnumerator<T>`: `{ [nil]: T }`
+## Features
+
+- Loads DLL assemblies based on .NET reflection
+- Includes type annotations
+  - `@enum name`: Enums, mapped as `table`
+  - `@class name : base, interface, ...`: Classes, supports base classes and interfaces
+- Includes members
+  - `field`: Fields
+  - `property`: Properties
+  - `indexer`: Indexers
+  - `method`: Methods, supports overloads, async, generics automatically interpreted by **xLua**, optional parameters, and variable parameters
+  - `constructor`: Constructors, with the same level of support as above
+  - `@operator`: Operator overloads, supports `add`, `sub`, `mul`, `div`, `unm`
+- Member access modifiers
+  - `@private`: Private members
+  - `@protected`: Protected members
+  - `@package`: **Internal** members within the assembly
+- Composite Type Mapping
+  - `TValue this[TKey idx]`: `{ [TKey]: TValue }`
+  - `IEnumerable<T>`, `IEnumerator<T>`: `{ [nil]: T }`
   - `Nullable<T>`: `T|nil`
-- 完整的 C# 到 Lua 类型映射
-- 委托类型自动转换为函数类型
-- 对于无法识别的`userdata`，会被映射为复合类型以提供更精确的代码提示
+- Delegate types are automatically converted to function types
+- Unrecognized `userdata` is mapped as composite types to provide more precise code hints
 
-## 使用方法
+## Usage
 
-### 1. 创建配置文件
+### 1. Create a configuration file
 
-创建 JSON 配置文件（参考 `config.json`）：
+Create a JSON configuration file (refer to `config.json`):
 
 ```json
 {
@@ -43,41 +43,39 @@
         "Namespace.Type1",
         "Namespace.Type2",
         "*"
-      ],
+      ]
     }
   ],
   "outputDir": "output"
 }
 ```
 
-#### 配置说明
+#### Configuration Explanation
 
-- `assemblies` - 要加载的程序集列表
-  - `path` - DLL 文件路径（支持相对或绝对路径）
-  - `types` - 要生成文档的类型列表（不支持泛型）
-    - `"NS1.NS2.ClassName"` - 指定完整类型名
-    - `"NS1.NS2.ClassName+NestedClass"` - 嵌套类型
-- `outputDir` - 输出目录（默认为 "output"）
+- `assemblies` - List of assemblies to load
+  - `path` - Path to the DLL file (supports relative or absolute paths)
+  - `types` - List of types to generate documentation for (generics are not supported)
+    - `"NS1.NS2.ClassName"` - Specify the full type name
+    - `"NS1.NS2.ClassName+NestedClass"` - Nested types
+- `outputDir` - Output directory (defaults to "output")
 
-### 2. 运行生成器
+### 2. Run the generator
 
 ```bash
 dotnet run -- config.json
 ```
 
-### 3. 生成示例
-- [息风谷战略Lua注解](https://github.com/zhu-rengong/ZhanGuoWuxiaLuaAnnotations)
+### 3. Generated Example
+- [息风谷战略](https://github.com/zhu-rengong/ZhanGuoWuxiaLuaAnnotations)
 
-## 依赖项
+## Dependencies
 
-- .NET 8.0 或更高版本
+- .NET 8.0 or higher
 
-## 注意事项
-- 生成的文档使用 `CS.` 前缀命名空间，与 xLua 保持一致
-- Lua 关键字会自动转义（如 `and` 转为 `__and__`）
-- 除了关键泛型外，均会被映射为 `userdata`
-- 编译器生成的成员会被自动过滤
-- 运算符重载的第一个参数类型必须与声明类相同
-- 不支持多维索引器
-
-
+## Notes
+- Generated documentation uses the `CS.` prefix for namespaces, consistent with xLua
+- Lua keywords are automatically escaped (e.g., `and` becomes `__and__`)
+- Except for the key generics, other types are mapped as `userdata`
+- Compiler-generated members are automatically filtered out
+- The first parameter type for operator overloads must be the same as the declaring class
+- Multidimensional indexers are not supported
