@@ -16,6 +16,8 @@ public sealed record LuaConstructor : LuaCallable
     {
         StringBuilder lines = new();
 
+        lines.AppendLine($"do");
+        
         // Access modifier annotation
         if (AccessModifier.IsAnnotationRequired())
         {
@@ -39,7 +41,10 @@ public sealed record LuaConstructor : LuaCallable
 
         // Constructor declaration
         var paramsStr = GenerateParameterList(Parameters, forAnnotation: false);
-        lines.Append($"function CS.{ClassName}({paramsStr}) end");
+        lines.AppendLine($"local __ctor = function({paramsStr}) end");
+        lines.AppendLine($"CS.{ClassName} = __ctor");
+        lines.AppendLine($"CS.{ClassName}.__new = __ctor");
+        lines.Append($"end");
 
         return lines.ToString();
     }
