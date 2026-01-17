@@ -250,7 +250,7 @@ internal sealed class TypeGenerator
                 return new LuaOverloadFunction
                 {
                     IsMethodCallWithImplicitSelf = !overloadMethod.IsStatic,
-                    Parameters = GenerateParameters(overloadMethod, takeOperatorPrecedenceIntoAccount: true),
+                    Parameters = GenerateParameters(overloadMethod, considerOpPrec: true),
                     ReturnType = _docxgen.TypeMapper.MapToLuaType(overloadMethod.ReturnType)
                 };
             }));
@@ -307,27 +307,24 @@ internal sealed class TypeGenerator
         luaCtor.Overloads.AddRange(ctors.Skip(1).Select(overloadCtor => new LuaOverloadFunction
         {
             IsMethodCallWithImplicitSelf = false,
-            Parameters = GenerateParameters(overloadCtor, takeOperatorPrecedenceIntoAccount: true),
+            Parameters = GenerateParameters(overloadCtor, considerOpPrec: true),
             ReturnType = className
         }));
 
         luaClass.Constructors.Add(luaCtor);
     }
 
-    public List<LuaParameter> GenerateParameters(MethodBase method, bool takeOperatorPrecedenceIntoAccount = false)
+    public List<LuaParameter> GenerateParameters(MethodBase method, bool considerOpPrec = false)
     {
         return method.GetParameters()
             .Select(p =>
             {
                 var isVariadic = p.IsDefined(typeof(ParamArrayAttribute), inherit: false);
-                var paramType = _docxgen.TypeMapper.MapToLuaType(isVariadic
-                    ? p.ParameterType.GetElementType()!
-                    : p.ParameterType);
-
-                if (takeOperatorPrecedenceIntoAccount && TypeHelper.IsDelegateType(p.ParameterType))
-                {
-                    paramType = $"({paramType})";
-                }
+                var paramType = _docxgen.TypeMapper.MapToLuaType(
+                    isVariadic
+                        ? p.ParameterType.GetElementType()!
+                        : p.ParameterType,
+                    considerOpPrec: considerOpPrec);
 
                 return new LuaParameter(
                     EscapeLuaKeyword(p.Name ?? "arg"),

@@ -38,7 +38,9 @@ internal sealed class TypeMapper
         [typeof(UIntPtr)] = "integer"
     };
 
-    private readonly Dictionary<Type, string> _typeCache = new();
+    public sealed record MapResult(string Name, bool EnhanceOpPrecIfNecessary);
+
+    private readonly Dictionary<Type, MapResult> _mapCache = new();
     private readonly Dictionary<Type, string> _qualifiedNameCache = new();
     private readonly DocumentationGenerator _docxgen;
 
@@ -47,17 +49,16 @@ internal sealed class TypeMapper
         _docxgen = docxgen;
     }
 
-    public string MapToLuaType(Type type)
+    public string MapToLuaType(Type type, bool considerOpPrec = false)
     {
-        if (_typeCache.TryGetValue(type, out var cachedType))
+        if (!_mapCache.TryGetValue(type, out var result))
         {
-            return cachedType;
+            result = MapTypeInternal(type);
         }
 
-        var result = MapTypeInternal(type);
+        _mapCache[type] = result;
 
-        _typeCache[type] = result;
-        return result;
+        return considerOpPrec && result.EnhanceOpPrecIfNecessary ? $"({result.Name})" : result.Name;
     }
 
     public string GetQualifiedTypeName(Type type)
@@ -100,42 +101,57 @@ internal sealed class TypeMapper
         return string.Join('.', names);
     }
 
-    private string MapTypeInternal(Type type)
+    private MapResult MapTypeInternal(Type type)
     {
         if (type == typeof(void))
         {
-            return Void;
+            return new(Void, false);
         }
 
         // Handle generic method params
         if (type.IsGenericMethodParameter)
         {
-            return type.Name;
+            return new(type.Name, false);
         }
 
         // Handle enums
         if (type.IsEnum)
         {
-            return GetQualifiedTypeName(type);
+            return new(GetQualifiedTypeName(type), false);
         }
 
         // Handle arrays
         if (type.IsArray)
         {
-            return $"{MapTypeInternal(type.GetElementType()!)}[]";
+            return new($"{MapToLuaType(type.GetElementType()!, considerOpPrec: true)}[]", false);
         }
 
         // Handle ref types
         if (type.IsByRef)
         {
-            return MapTypeInternal(type.GetElementType()!);
+            return new(MapToLuaType(type.GetElementType()!), false);
         }
 
         // Handle delegates
         if (TypeHelper.IsDelegateType(type))
         {
-            var (parameters, returnType) = DelegateParser.Parse(type, _docxgen.TypeGenerator, this);
-            return ParseToStringRepresentation(parameters, returnType);
+            var invokeMethod = type.GetMethod("Invoke");
+            List<LuaParameter>? parameters;
+            string? returnType;
+            if (invokeMethod != null)
+            {
+                parameters = _docxgen.TypeGenerator.GenerateParameters(invokeMethod, considerOpPrec: true);
+                returnType = MapToLuaType(invokeMethod.ReturnType);
+            }
+            else
+            {
+                parameters = [];
+                returnType = MapToLuaType(typeof(void));
+            }
+
+            var paramStr = LuaCallable.GenerateParameterList(parameters, forAnnotation: true);
+            var returnStr = returnType == Void ? "" : $": {returnType}";
+            return new($"fun({paramStr}){returnStr}", true);
         }
 
         // Handle generic types
@@ -144,17 +160,17 @@ internal sealed class TypeMapper
             return MapGenericType(type);
         }
 
-        return GetQualifiedTypeName(type);
+        return new(GetQualifiedTypeName(type), false);
     }
 
-    private string MapGenericType(Type type)
+    private MapResult MapGenericType(Type type)
     {
         var genericDef = type.GetGenericTypeDefinition();
 
         // IList<T> -> T[]
         if (type.ImplementsGenericInterface(typeof(IList<>), out var implIList))
         {
-            return $"{MapToLuaType(implIList.GetGenericArguments()[0])}[]";
+            return new($"{MapToLuaType(implIList.GetGenericArguments()[0], considerOpPrec: true)}[]", false);
         }
 
         // IDictionary<K, V> -> { [K]: V }
@@ -163,34 +179,26 @@ internal sealed class TypeMapper
             var implGenericArgs = implIDictionary.GetGenericArguments();
             var keyType = MapToLuaType(implGenericArgs[0]);
             var valueType = MapToLuaType(implGenericArgs[1]);
-            return $"{{ [{keyType}]: {valueType} }}";
+            return new($"{{ [{keyType}]: {valueType} }}", false);
         }
 
         // IEnumerable<T> -> fun(): T
         if (type.ImplementsGenericInterface(typeof(IEnumerable<>), out var implIEnumerable))
         {
-            return $"fun(): {MapToLuaType(implIEnumerable.GetGenericArguments()[0])}";
+            return new($"fun(): {MapToLuaType(implIEnumerable.GetGenericArguments()[0], considerOpPrec: true)}", true);
         }
 
         // IEnumerator<T> -> fun(): T
         if (type.ImplementsGenericInterface(typeof(IEnumerator<>), out var implIEnumerator))
         {
-            return $"fun(): {MapToLuaType(implIEnumerator.GetGenericArguments()[0])}";
+            return new($"fun(): {MapToLuaType(implIEnumerator.GetGenericArguments()[0], considerOpPrec: true)}", true);
         }
 
         if (genericDef == typeof(Nullable<>))
         {
-            return $"{MapToLuaType(type.GetGenericArguments()[0])}|nil";
+            return new($"{MapToLuaType(type.GetGenericArguments()[0], considerOpPrec: true)}|nil", true);
         }
 
-        // All other generic types map to userdata
-        return "userdata";
-    }
-
-    private static string ParseToStringRepresentation(List<LuaParameter> parameters, string returnType)
-    {
-        var paramStr = LuaCallable.GenerateParameterList(parameters, forAnnotation: true);
-        var returnStr = returnType == Void ? "" : $": {returnType}";
-        return $"fun({paramStr}){returnStr}";
+        return new(GetQualifiedTypeName(type), false);
     }
 }
