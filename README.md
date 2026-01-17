@@ -23,7 +23,7 @@ This tool loads C# assemblies and converts their types into [EmmyLua](https://em
   - `@package`: **Internal** members within the assembly
 - Composite Type Mapping
   - `TValue this[TKey idx]`: `{ [TKey]: TValue }`
-  - `IEnumerable<T>`, `IEnumerator<T>`: `{ [nil]: T }`
+  - `IEnumerable<T>`, `IEnumerator<T>`: `fun(): T`
   - `Nullable<T>`: `T|nil`
 - Delegate types are automatically converted to function types
 - Unrecognized `userdata` is mapped as composite types to provide more precise code hints

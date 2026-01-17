@@ -23,7 +23,7 @@
   - `@package`: 程序集内**internal**成员
 - 复合类型映射
   - `TValue this[TKey idx]`: `{ [TKey]: TValue }`
-  - `IEnumerable<T>`, `IEnumerator<T>`: `{ [nil]: T }`
+  - `IEnumerable<T>`, `IEnumerator<T>`: `fun(): T`
   - `Nullable<T>`: `T|nil`
 - 委托类型自动转换为函数类型
 - 对于无法识别的`userdata`，会被映射为复合类型以提供更精确的代码提示
