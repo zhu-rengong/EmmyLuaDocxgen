@@ -210,13 +210,16 @@ internal sealed class CompositeType
         }
 
         // Handle indexers
+        HashSet<string> ignoredIndexers = [];
         foreach (var iterT in type.GetInheritanceHierarchy())
         {
-            foreach (var propertyInfo in iterT.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            foreach (var propertyInfo in iterT.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
             {
                 if (propertyInfo.GetIndexParameters() is { Length: 1 } indexParams)
                 {
                     string key = typeMapper.MapToLuaType(indexParams[0].ParameterType);
+                    if (ignoredIndexers.Contains(key)) { continue; }
+                    ignoredIndexers.Add(key);
                     string value = typeMapper.MapToLuaType(propertyInfo.PropertyType);
                     AddPart($"{{ [{key}]: {value} }}", false);
                 }
